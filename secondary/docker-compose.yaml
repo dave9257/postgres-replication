@@ -1,0 +1,26 @@
+version: '3'
+services:
+  node_2:
+    image: postgres
+    ports:
+      - 5433:5432
+    env_file: .env
+    environment:
+      PGUSER: ${PGUSER}
+      PGPASSWORD: ${PGPASSWORD}
+    command: |
+      bash -c '
+      if [ ! -d /var/lib/postgresql/data ] || [ -z "$(ls -A /var/lib/postgresql/data)" ]; then
+        until pg_basebackup --pgdata=/var/lib/postgresql/data -R --slot=${REPLICATION_SLOT} --host=${MASTER_HOST} --port=${MASTER_PORT}
+        do
+          echo "Waiting for primary to connect..."
+          sleep 1s
+        done
+        chown -R 999 /var/lib/postgresql/data
+        chmod 700 /var/lib/postgresql/data
+        echo "Backup done, starting replica..."
+      fi
+      su postgres -c postgres
+      '
+    volumes:
+      - ./replica-data:/var/lib/postgresql/data
